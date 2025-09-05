@@ -2,11 +2,11 @@ import random
 
 import dash_chart_editor as dce
 import dash_mantine_components as dmc
-import openai
 import pandas as pd
 from dash import Input, Output, State, callback, dcc, html, no_update, register_page
 
 import utils
+from openai_client import openai_client, create_error_notification
 
 df = pd.read_csv("https://raw.githubusercontent.com/plotly/datasets/master/solar.csv")
 
@@ -86,21 +86,35 @@ layout = html.Div(
 )
 def chat_window(n_clicks, data, question, cur):
     df = pd.DataFrame(data)
-
     prompt = utils.generate_prompt(df, question)
-
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}]
+    
+    # Generate fallback info for error cases
+    fallback_info = f"Dataset has {len(df)} rows and {len(df.columns)} columns. Columns: {', '.join(df.columns)}"
+    
+    # Use the safe chat completion with error handling
+    response = openai_client.safe_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        model="gpt-4o-mini",
+        fallback_info=fallback_info,
+        question=question
     )
 
-    question = [
-        dcc.Markdown(
-            completion.choices[0].message.content, className="chat-item answer"
-        ),
-        dcc.Markdown(question, className="chat-item question"),
-    ]
+    # Check if response contains error indicators
+    if "⚠️" in response or "API" in response or "quota" in response.lower():
+        # Show error notification
+        error_notification = create_error_notification(response)
+        question_response = [
+            error_notification,
+            dcc.Markdown(question, className="chat-item question"),
+        ]
+    else:
+        # Normal response
+        question_response = [
+            dcc.Markdown(response, className="chat-item answer"),
+            dcc.Markdown(question, className="chat-item question"),
+        ]
 
-    return (question + cur if cur else question), None
+    return (question_response + cur if cur else question_response), None
 
 
 @callback(

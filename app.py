@@ -4,14 +4,13 @@ import uuid
 
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
-import openai
 from dash import Dash, Input, Output, State, callback, page_container
 from flask import request
 
 import utils
 from constants import redis_instance
 
-openai.api_key = os.getenv("OPEN_AI_KEY")
+# print("API Key:", os.getenv('OPEN_AI_KEY'))
 
 app = Dash(
     __name__,

@@ -4,10 +4,10 @@ import pickle
 import dash
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
-import openai
 from dash import dcc, html
 
 from constants import redis_instance
+from openai_client import openai_client, create_error_notification
 
 dash.register_page(__name__)
 
@@ -26,12 +26,32 @@ def layout(layout=None):
         f"There should be {len(figures)} charts to follow:\n\n\n"
     )
 
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+    # Generate fallback info
+    fallback_info = f"Layout contains {len(figures)} charts. Chart data has been processed and is ready for analysis."
+    
+    # Use safe chat completion with error handling
+    response_content = openai_client.safe_chat_completion(
         messages=[{"role": "user", "content": question + json.dumps(figures)[0:3900]}],
+        model="gpt-4o-mini",
+        fallback_info=fallback_info,
+        question="Summarize the charts and provide insights"
     )
 
-    response = dcc.Markdown(completion.choices[0].message.content)
+    # Check if response contains error indicators
+    if "⚠️" in response_content or "API" in response_content or "quota" in response_content.lower():
+        # Show error notification and fallback response
+        response = html.Div([
+            create_error_notification(response_content),
+            dcc.Markdown(
+                f"**Basic Chart Summary** (AI service unavailable)\n\n"
+                f"This layout contains {len(figures)} interactive charts. "
+                f"Each chart has been processed and is ready for analysis. "
+                f"For detailed AI-powered insights, please ensure your OpenAI API key is valid and has sufficient quota.",
+                className="chat-item answer"
+            )
+        ])
+    else:
+        response = dcc.Markdown(response_content)
 
     return dmc.LoadingOverlay(
         [
