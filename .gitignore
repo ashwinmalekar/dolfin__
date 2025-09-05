@@ -139,4 +139,9 @@ dmypy.json
 .pytype/
 
 # Cython debug symbols
-cython_debug/
+cython_debug/secrets.env
+.env
+*.env
+secrets.env
+.env
+*.env
